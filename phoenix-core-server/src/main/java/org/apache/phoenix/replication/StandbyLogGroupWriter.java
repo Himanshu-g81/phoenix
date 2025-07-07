@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.replication.log.LogFileWriter;
 import org.apache.phoenix.replication.log.LogFileWriterContext;
+import org.apache.phoenix.replication.reader.ReplicationLogFileTracker;
 import org.apache.phoenix.util.EnvironmentEdgeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,8 +97,9 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
         // overall distribution by also hashing the timestamp.
         int shard = Math.floorMod(logGroup.getServerName().hashCode() ^ Long.hashCode(timestamp),
             numShards);
-        Path shardPath = new Path(haGroupPath,
-            String.format(ReplicationLogGroup.SHARD_DIR_FORMAT, shard));
+//        Path shardPath = new Path(haGroupPath,
+//            String.format(ReplicationLogFileTracker.IN, shard));
+        Path shardPath = new Path(haGroupPath, ReplicationLogFileTracker.IN);
         // Ensure the shard directory exists. We track which shard directories we have probed or
         // created to avoid a round trip to the namenode for repeats.
         IOException[] exception = new IOException[1];

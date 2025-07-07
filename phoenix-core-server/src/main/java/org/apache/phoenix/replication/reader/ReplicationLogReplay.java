@@ -37,10 +37,8 @@ public class ReplicationLogReplay {
 
     protected void init() throws IOException {
         // Initialize file system
-        this.replicationLogFileTracker = new ReplicationLogFileTracker(conf, haGroupId);
-        this.replicationStateTracker = new ReplicationStateTracker(conf, haGroupId);
-        this.replicationLogFileTracker.init();
-        this.replicationStateTracker.init(replicationLogFileTracker);
+        this.replicationLogFileTracker = ReplicationLogFileTracker.get(conf, haGroupId);
+        this.replicationStateTracker = ReplicationStateTracker.get(conf, haGroupId);
     }
 
     protected void startScheduler() {

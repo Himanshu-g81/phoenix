@@ -3,7 +3,6 @@ package org.apache.phoenix.replication.reader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.phoenix.replication.ReplicationLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +39,7 @@ public class ReplicationLogReplayService {
     public static ReplicationLogReplayService getInstance(Configuration conf)
             throws IOException {
         if (instance == null) {
-            synchronized (ReplicationLog.class) {
+            synchronized (ReplicationLogReplayService.class) {
                 if (instance == null) {
                     // Complete initialization before assignment
                     ReplicationLogReplayService replicationLogReplayService = new ReplicationLogReplayService(conf);

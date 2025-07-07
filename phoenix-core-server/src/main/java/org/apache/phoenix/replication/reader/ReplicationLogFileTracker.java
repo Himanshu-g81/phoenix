@@ -15,14 +15,19 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ReplicationLogFileTracker {
 
     private static final Logger LOG = LoggerFactory.getLogger(ReplicationLogFileTracker.class);
+    
+    // Singleton instances per haGroupName
+    private static final Map<String, ReplicationLogFileTracker> instances = new ConcurrentHashMap<>();
 
-    private static final String IN = "IN";
-    private static final String IN_PROGRESS = "IN_PROGRESS";
+    public static final String IN = "IN";
+    public static final String IN_PROGRESS = "IN_PROGRESS";
     
     // Configuration keys for file operations
     private static final String FILE_DELETE_RETRIES_KEY = "phoenix.replication.file.delete.retries";
@@ -38,9 +43,30 @@ public class ReplicationLogFileTracker {
     private Path inProgressDirPath;
     private ReplicationShardDirectoryManager replicationShardDirectoryManager;
 
-    public ReplicationLogFileTracker(final Configuration conf, final String haGroupName) {
+    private ReplicationLogFileTracker(final Configuration conf, final String haGroupName) {
         this.conf = conf;
         this.haGroupName = haGroupName;
+    }
+    
+    /**
+     * Gets the singleton instance of ReplicationLogFileTracker for the given haGroupName.
+     * Creates a new instance if one doesn't exist for the haGroupName.
+     * 
+     * @param conf Configuration object
+     * @param haGroupName The HA group name
+     * @return The singleton ReplicationLogFileTracker instance for the haGroupName
+     * @throws IOException If initialization fails
+     */
+    public static ReplicationLogFileTracker get(Configuration conf, String haGroupName) throws IOException {
+        return instances.computeIfAbsent(haGroupName, name -> {
+            try {
+                ReplicationLogFileTracker tracker = new ReplicationLogFileTracker(conf, name);
+                tracker.init();
+                return tracker;
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to initialize ReplicationLogFileTracker for haGroup: " + name, e);
+            }
+        });
     }
 
     public void init() throws IOException {
@@ -180,12 +206,14 @@ public class ReplicationLogFileTracker {
     }
 
     public boolean markCompleted(final Path file) {
+        System.out.println("Mark Completed Method Called for " + file.toString());
         int maxRetries = conf.getInt(FILE_DELETE_RETRIES_KEY, DEFAULT_FILE_DELETE_RETRIES);
         long retryDelayMs = conf.getLong(FILE_DELETE_RETRY_DELAY_MS_KEY, DEFAULT_FILE_DELETE_RETRY_DELAY_MS);
         
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
                 if (fileSystem.delete(file, false)) {
+                    System.out.println("Successfully deleted completed file: " + file);
                     LOG.debug("Successfully deleted completed file: {}", file);
                     return true;
                 } else {
@@ -212,6 +240,7 @@ public class ReplicationLogFileTracker {
     }
 
     public boolean markInProgress(final Path file) {
+        System.out.println("Mark In Progress Method Called for " + file.toString());
         try {
             String fileName = file.getName();
             String newFileName;
