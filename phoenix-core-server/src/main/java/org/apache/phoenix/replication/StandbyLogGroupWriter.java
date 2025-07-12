@@ -25,9 +25,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.phoenix.replication.common.ReplicationShardDirectoryManager;
 import org.apache.phoenix.replication.log.LogFileWriter;
 import org.apache.phoenix.replication.log.LogFileWriterContext;
-import org.apache.phoenix.replication.reader.ReplicationLogFileTracker;
 import org.apache.phoenix.util.EnvironmentEdgeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,7 +89,10 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
      * </pre>
      */
     protected Path makeWriterPath(FileSystem fs, URI url) throws IOException {
-        Path haGroupPath = new Path(url.getPath(), logGroup.getHaGroupName());
+        Path newFilesDirectory = new Path(url.getPath(), "in");
+        Path groupPath = new Path(newFilesDirectory, logGroup.getHaGroupName());
+        ReplicationShardDirectoryManager replicationShardDirectoryManager = new ReplicationShardDirectoryManager(logGroup.getConfiguration(), groupPath);
+//        Path haGroupPath = new Path(url.getPath(), "in", logGroup.getHaGroupName());
         long timestamp = EnvironmentEdgeManager.currentTimeMillis();
         // To have all logs for a given regionserver appear in the same shard, hash only the
         // serverName. However we expect some regionservers will have significantly more load than
@@ -99,14 +102,16 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
             numShards);
 //        Path shardPath = new Path(haGroupPath,
 //            String.format(ReplicationLogFileTracker.IN, shard));
-        Path shardPath = new Path(haGroupPath, ReplicationLogFileTracker.IN);
+//        Path shardPath = new Path(haGroupPath, "shard", "0");
+        Path shardPath = replicationShardDirectoryManager.getShardDirectory(timestamp);
+        System.out.println("Shard path " + shardPath);
         // Ensure the shard directory exists. We track which shard directories we have probed or
         // created to avoid a round trip to the namenode for repeats.
         IOException[] exception = new IOException[1];
         shardMap.computeIfAbsent(shardPath, p -> {
             try {
                 if (!fs.exists(p)) {
-                    fs.mkdirs(haGroupPath); // This probably exists, but just in case.
+                    fs.mkdirs(groupPath); // This probably exists, but just in case.
                     if (!fs.mkdirs(shardPath)) {
                         throw new IOException("Could not create path: " + p);
                     }

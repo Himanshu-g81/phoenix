@@ -12,7 +12,7 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.util.Collections;
 
-public class ReplicationLogReplayServiceTest extends ParallelStatsDisabledIT {
+public class ReplicationLogDiscoveryServiceTest extends ParallelStatsDisabledIT {
 
     private static final String CREATE_TABLE_SQL_STATEMENT = "CREATE TABLE %s (ID VARCHAR PRIMARY KEY, " +
             "COL_1 VARCHAR, COL_2 VARCHAR, COL_3 BIGINT)";
@@ -37,7 +37,7 @@ public class ReplicationLogReplayServiceTest extends ParallelStatsDisabledIT {
     public static void setupBeforeClass() throws Exception {
         conf = getUtility().getConfiguration();
         localFs = FileSystem.getLocal(conf);
-        conf.set(ReplicationLogReplayService.REPLICATION_LOG_REPLAY_HDFS_URL_KEY, testFolder.toString());
+        conf.set(ReplicationReplay.REPLICATION_LOG_REPLAY_HDFS_URL_KEY, testFolder.toString());
         replicationLogReplayService = Mockito.spy(ReplicationLogReplayService.getInstance(conf));
         Mockito.doReturn(Collections.singletonList(testHAGroupId)).when(replicationLogReplayService).getReplicationGroups();
     }

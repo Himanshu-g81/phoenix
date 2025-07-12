@@ -63,8 +63,8 @@ import org.apache.hadoop.hbase.util.Pair;
 import org.apache.phoenix.end2end.ParallelStatsDisabledIT;
 import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.query.QueryServices;
+import org.apache.phoenix.replication.ReplicationLogDiscovery;
 import org.apache.phoenix.replication.ReplicationLogGroup;
-import org.apache.phoenix.replication.ReplicationLogGroupWriter;
 import org.apache.phoenix.replication.log.LogFileReader;
 import org.apache.phoenix.replication.log.LogFileReaderContext;
 import org.apache.phoenix.replication.log.LogFileTestUtil;
@@ -410,7 +410,7 @@ public class ReplicationLogProcessorTest extends ParallelStatsDisabledIT {
         final String table2Name = "T_" + generateUniqueName();
         URI standbyUri = new Path(testFolder.toString()).toUri();
         conf.set(ReplicationLogGroup.REPLICATION_STANDBY_HDFS_URL_KEY, standbyUri.toString());
-        conf.set(ReplicationLogReplayService.REPLICATION_LOG_REPLAY_HDFS_URL_KEY, standbyUri.toString());
+        conf.set(ReplicationReplay.REPLICATION_LOG_REPLAY_HDFS_URL_KEY, standbyUri.toString());
         String testHAGroupId = "testHAGroup";
         final Path filePath = new Path(testFolder.newFile("testProcessLogFileEnd2End").toURI());
         ServerName serverName = ServerName.valueOf("test", 60010, EnvironmentEdgeManager.currentTimeMillis());
@@ -443,18 +443,17 @@ public class ReplicationLogProcessorTest extends ParallelStatsDisabledIT {
             replicationLog.sync();
             replicationLog.close();
 //            conf.set(ReplicationLogReplayService.REPLICATION_LOG_REPLAY_HDFS_URL_KEY, testFolder.toString());
-            ReplicationLogReplay replicationLogReplay = new ReplicationLogReplay(conf, testHAGroupId);
-            replicationLogReplay.init();
+            ReplicationReplayLogDiscovery replicationReplayLogDiscovery = ReplicationReplay.get(conf, "testHAGroup").getReplicationReplayLogDiscovery();
+            replicationReplayLogDiscovery.replay();
             System.out.println("Starting Sleep");
             Thread.sleep(60*1000L);
             System.out.println("Finished Sleep");
-            replicationLogReplay.replay();
 
             validate(table1Name, table1Mutations);
             validate(table2Name, table2Mutations);
 
             System.out.println("Starting the replay again");
-            replicationLogReplay.replay();
+            replicationReplayLogDiscovery.replay();
             // Ensure metrics are correctly populated
 //            ReplicationLogProcessorMetricValues metricValues = replicationLogProcessor.getMetrics().getCurrentMetricValues();
 //            assertEquals("Invalid log file success count", 1, metricValues.getLogFileReplaySuccessCount());
