@@ -1,4 +1,4 @@
-package org.apache.phoenix.replication.reader;
+package org.apache.phoenix.replication;
 
 import com.google.common.base.Preconditions;
 

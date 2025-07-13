@@ -12,7 +12,7 @@ public class ReplicationLogReplayFileTracker extends ReplicationLogFileTracker {
         super(conf, haGroupName, fileSystem, rootURI);
     }
 
-    private static final String IN_SUBDIRECTORY = "in";
+    public static final String IN_SUBDIRECTORY = "in";
 
     @Override
     protected String getNewLogSubDirectoryName() {

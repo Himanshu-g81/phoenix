@@ -4,9 +4,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.phoenix.replication.common.ReplicationShardDirectoryManager;
 import org.apache.phoenix.replication.log.LogFile;
-import org.apache.phoenix.replication.reader.Round;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

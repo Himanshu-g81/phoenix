@@ -25,9 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.phoenix.replication.common.ReplicationShardDirectoryManager;
 import org.apache.phoenix.replication.log.LogFileWriter;
 import org.apache.phoenix.replication.log.LogFileWriterContext;
+import org.apache.phoenix.replication.reader.ReplicationLogReplayFileTracker;
+import org.apache.phoenix.replication.reader.ReplicationReplayLogDiscovery;
 import org.apache.phoenix.util.EnvironmentEdgeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
 
     private FileSystem standbyFs;
     private URI standbyUrl;
-    protected int numShards;
+    private Path haGroupLogFilesPath;
     protected final ConcurrentHashMap<Path, Object> shardMap = new ConcurrentHashMap<>();
 
     /**
@@ -54,18 +55,11 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
     public StandbyLogGroupWriter(ReplicationLogGroup logGroup) {
         super(logGroup);
         Configuration conf = logGroup.getConfiguration();
-        this.numShards = conf.getInt(ReplicationLogGroup.REPLICATION_NUM_SHARDS_KEY,
-            ReplicationLogGroup.DEFAULT_REPLICATION_NUM_SHARDS);
         LOG.debug("Created StandbyLogGroupWriter for HA Group: {}", logGroup.getHaGroupName());
     }
 
     @Override
     protected void initializeFileSystems() throws IOException {
-        if (numShards > ReplicationLogGroup.MAX_REPLICATION_NUM_SHARDS) {
-            throw new IllegalArgumentException(ReplicationLogGroup.REPLICATION_NUM_SHARDS_KEY
-                + " is " + numShards + ", but the limit is "
-                + ReplicationLogGroup.MAX_REPLICATION_NUM_SHARDS);
-        }
         Configuration conf = logGroup.getConfiguration();
         String standbyUrlString = conf.get(ReplicationLogGroup.REPLICATION_STANDBY_HDFS_URL_KEY);
         if (standbyUrlString == null || standbyUrlString.trim().isEmpty()) {
@@ -75,10 +69,18 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
         try {
             standbyUrl = new URI(standbyUrlString);
             standbyFs = getFileSystem(standbyUrl);
+            initializeReplicationShardDirectoryManager();
             LOG.info("Initialized standby filesystem: {}", standbyUrl);
         } catch (URISyntaxException e) {
             throw new IOException("Invalid standby HDFS URL: " + standbyUrlString, e);
         }
+    }
+
+    @Override
+    protected void initializeReplicationShardDirectoryManager() {
+        System.out.println("Calling initializeReplicationShardDirectoryManager");
+        haGroupLogFilesPath = new Path(new Path(standbyUrl.getPath(), ReplicationLogReplayFileTracker.IN_SUBDIRECTORY), logGroup.getHaGroupName());
+        this.replicationShardDirectoryManager = new ReplicationShardDirectoryManager(logGroup.getConfiguration(), haGroupLogFilesPath);
     }
 
     /**
@@ -89,20 +91,8 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
      * </pre>
      */
     protected Path makeWriterPath(FileSystem fs, URI url) throws IOException {
-        Path newFilesDirectory = new Path(url.getPath(), "in");
-        Path groupPath = new Path(newFilesDirectory, logGroup.getHaGroupName());
-        ReplicationShardDirectoryManager replicationShardDirectoryManager = new ReplicationShardDirectoryManager(logGroup.getConfiguration(), groupPath);
-//        Path haGroupPath = new Path(url.getPath(), "in", logGroup.getHaGroupName());
         long timestamp = EnvironmentEdgeManager.currentTimeMillis();
-        // To have all logs for a given regionserver appear in the same shard, hash only the
-        // serverName. However we expect some regionservers will have significantly more load than
-        // others so we instead distribute the logs over all of the shards randomly for a more even
-        // overall distribution by also hashing the timestamp.
-        int shard = Math.floorMod(logGroup.getServerName().hashCode() ^ Long.hashCode(timestamp),
-            numShards);
-//        Path shardPath = new Path(haGroupPath,
-//            String.format(ReplicationLogFileTracker.IN, shard));
-//        Path shardPath = new Path(haGroupPath, "shard", "0");
+        System.out.println("Getting shard path for timestamp: " + timestamp + " from " + replicationShardDirectoryManager);
         Path shardPath = replicationShardDirectoryManager.getShardDirectory(timestamp);
         System.out.println("Shard path " + shardPath);
         // Ensure the shard directory exists. We track which shard directories we have probed or
@@ -111,7 +101,7 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
         shardMap.computeIfAbsent(shardPath, p -> {
             try {
                 if (!fs.exists(p)) {
-                    fs.mkdirs(groupPath); // This probably exists, but just in case.
+                    fs.mkdirs(haGroupLogFilesPath); // This probably exists, but just in case.
                     if (!fs.mkdirs(shardPath)) {
                         throw new IOException("Could not create path: " + p);
                     }

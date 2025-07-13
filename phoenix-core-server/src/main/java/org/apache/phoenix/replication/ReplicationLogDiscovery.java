@@ -3,7 +3,6 @@ package org.apache.phoenix.replication;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.phoenix.replication.reader.Round;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +12,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 public abstract class ReplicationLogDiscovery {
@@ -26,6 +26,10 @@ public abstract class ReplicationLogDiscovery {
     private static final long DEFAULT_REPLAY_INTERVAL_SECONDS = 60;
 
     private static final long DEFAULT_SHUTDOWN_TIMEOUT_SECONDS = 30;
+
+    private static final double DEFAULT_IN_PROGRESS_DIRECTORY_PROCESSING_PROBABILITY = 5.0;
+
+    private static final double DEFAULT_WAITING_BUFFER_PERCENTAGE = 15.0;
 
     private final Configuration conf;
     private final String haGroupName;
@@ -104,7 +108,7 @@ public abstract class ReplicationLogDiscovery {
         long currentTime = System.currentTimeMillis();
         long previousRoundEndTime = replicationStateTracker.getLastSuccessfullyProcessedRound().getEndTime();
         long roundTimeMills = replicationLogFileTracker.getReplicationShardDirectoryManager().getRoundTimeSeconds() * 1000L;
-        long bufferMillis = 15000; // make it configurable
+        long bufferMillis = (long) (roundTimeMills * getWaitingBufferPercentage() / 100.0);
         final List<Round> rounds = new ArrayList<>();
         for(long startTime = previousRoundEndTime; startTime < currentTime - roundTimeMills - bufferMillis; startTime += roundTimeMills) {
             rounds.add(replicationLogFileTracker.getReplicationShardDirectoryManager().getReplicationRoundFromStartTime(startTime));
@@ -122,7 +126,7 @@ public abstract class ReplicationLogDiscovery {
     }
 
     protected boolean shouldProcessInProgressDirectory() {
-        return new Random().nextInt(10) == 0;
+        return ThreadLocalRandom.current().nextDouble(100.0) < getInProgressDirectoryProcessProbability();
     }
 
     protected void processNewFilesForRound(Round round) throws IOException {
@@ -199,4 +203,18 @@ public abstract class ReplicationLogDiscovery {
     protected long getShutdownTimeoutSeconds() {
         return DEFAULT_SHUTDOWN_TIMEOUT_SECONDS;
     }
+
+    protected double getInProgressDirectoryProcessProbability() {
+        return DEFAULT_IN_PROGRESS_DIRECTORY_PROCESSING_PROBABILITY;
+    }
+
+    /**
+     * Returns the buffer percentage for calculating buffer time. Subclasses can override this method 
+     * to provide custom buffer percentages.
+     * @return The buffer percentage (default 15.0%)
+     */
+    protected double getWaitingBufferPercentage() {
+        return DEFAULT_WAITING_BUFFER_PERCENTAGE;
+    }
+
 }
