@@ -2,12 +2,12 @@ package org.apache.phoenix.replication;
 
 import com.google.common.base.Preconditions;
 
-public class Round {
+public class ReplicationRound {
 
     private final long startTime;
     private final long endTime;
 
-    public Round(long startTime, long endTime) {
+    public ReplicationRound(long startTime, long endTime) {
         Preconditions.checkArgument(startTime < endTime);
         this.startTime = startTime;
         this.endTime = endTime;

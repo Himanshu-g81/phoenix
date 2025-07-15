@@ -62,9 +62,9 @@ public abstract class ReplicationLogFileTracker {
         }
     }
 
-    public List<Path> getNewFilesForRound(Round round) throws IOException {
-        Path roundDirectory = replicationShardDirectoryManager.getShardDirectory(round);
-        System.out.println("Getting new files for round: " + round.getStartTime() + " - " + roundDirectory.toString());
+    public List<Path> getNewFilesForRound(ReplicationRound replicationRound) throws IOException {
+        Path roundDirectory = replicationShardDirectoryManager.getShardDirectory(replicationRound);
+        System.out.println("Getting new files for round: " + replicationRound.getStartTime() + " - " + roundDirectory.toString());
         if (!fileSystem.exists(roundDirectory)) {
             return Collections.emptyList();
         }
@@ -83,7 +83,7 @@ public abstract class ReplicationLogFileTracker {
                 }
                 try {
                     long fileTimestamp = getFileTimestamp(status.getPath());
-                    if(fileTimestamp >= round.getStartTime() && fileTimestamp <= round.getEndTime()) {
+                    if(fileTimestamp >= replicationRound.getStartTime() && fileTimestamp <= replicationRound.getEndTime()) {
                         filesInRound.add(status.getPath());
                     }
                 } catch (NumberFormatException exception) {

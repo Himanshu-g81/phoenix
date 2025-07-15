@@ -79,8 +79,8 @@ public class ReplicationShardDirectoryManager {
         return new Path(shardDirectoryPath, shardDirName);
     }
 
-    public Path getShardDirectory(Round round) {
-        return getShardDirectory(round.getStartTime());
+    public Path getShardDirectory(ReplicationRound replicationRound) {
+        return getShardDirectory(replicationRound.getStartTime());
     }
 
     public long getNearestRoundStartTimestamp(long timestamp) {
@@ -92,16 +92,16 @@ public class ReplicationShardDirectoryManager {
         return (timestamp / roundTimeMs) * roundTimeMs;
     }
 
-    public Round getReplicationRoundFromStartTime(long roundStartTime) {
+    public ReplicationRound getReplicationRoundFromStartTime(long roundStartTime) {
         long validRoundStartTime = getNearestRoundStartTimestamp(roundStartTime);
         long validRoundEndTime = roundStartTime + roundTimeSeconds * 1000L;
-        return new Round(validRoundStartTime, validRoundEndTime);
+        return new ReplicationRound(validRoundStartTime, validRoundEndTime);
     }
 
-    public Round getReplicationRoundFromEndTime(long roundEndTime) {
+    public ReplicationRound getReplicationRoundFromEndTime(long roundEndTime) {
         long validRoundEndTime = getNearestRoundStartTimestamp(roundEndTime);
         long validRoundStartTime = validRoundEndTime - roundTimeSeconds * 1000L;
-        return new Round(validRoundStartTime, validRoundEndTime);
+        return new ReplicationRound(validRoundStartTime, validRoundEndTime);
     }
 
     public List<Path> getAllShardPaths() {

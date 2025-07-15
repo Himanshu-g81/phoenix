@@ -97,29 +97,29 @@ public abstract class ReplicationLogDiscovery {
 
     public void replay() throws IOException {
         System.out.println("Starting replay");
-        List<Round> roundList = getRoundsToProcess();
-        System.out.println("Number of rounds to process: " + roundList.size());
-        for(Round round : roundList) {
-            processRound(round);
+        List<ReplicationRound> replicationRoundList = getRoundsToProcess();
+        System.out.println("Number of rounds to process: " + replicationRoundList.size());
+        for(ReplicationRound replicationRound : replicationRoundList) {
+            processRound(replicationRound);
         }
     }
 
-    protected List<Round> getRoundsToProcess() {
+    protected List<ReplicationRound> getRoundsToProcess() {
         long currentTime = System.currentTimeMillis();
         long previousRoundEndTime = replicationStateTracker.getLastSuccessfullyProcessedRound().getEndTime();
         long roundTimeMills = replicationLogFileTracker.getReplicationShardDirectoryManager().getRoundTimeSeconds() * 1000L;
         long bufferMillis = (long) (roundTimeMills * getWaitingBufferPercentage() / 100.0);
-        final List<Round> rounds = new ArrayList<>();
+        final List<ReplicationRound> replicationRounds = new ArrayList<>();
         for(long startTime = previousRoundEndTime; startTime < currentTime - roundTimeMills - bufferMillis; startTime += roundTimeMills) {
-            rounds.add(replicationLogFileTracker.getReplicationShardDirectoryManager().getReplicationRoundFromStartTime(startTime));
+            replicationRounds.add(replicationLogFileTracker.getReplicationShardDirectoryManager().getReplicationRoundFromStartTime(startTime));
         }
-        return rounds;
+        return replicationRounds;
     }
 
-    protected void processRound(Round round) throws IOException {
-        System.out.println("Starting to process round: startTime:" + round.getStartTime() + " and endTime: " + round.getEndTime());
+    protected void processRound(ReplicationRound replicationRound) throws IOException {
+        System.out.println("Starting to process round: startTime:" + replicationRound.getStartTime() + " and endTime: " + replicationRound.getEndTime());
         // Process IN directory for a round
-        processNewFilesForRound(round);
+        processNewFilesForRound(replicationRound);
         if(shouldProcessInProgressDirectory()) {
             processInProgressDirectory();
         }
@@ -129,8 +129,8 @@ public abstract class ReplicationLogDiscovery {
         return ThreadLocalRandom.current().nextDouble(100.0) < getInProgressDirectoryProcessProbability();
     }
 
-    protected void processNewFilesForRound(Round round) throws IOException {
-        List<Path> files = replicationLogFileTracker.getNewFilesForRound(round);
+    protected void processNewFilesForRound(ReplicationRound replicationRound) throws IOException {
+        List<Path> files = replicationLogFileTracker.getNewFilesForRound(replicationRound);
         System.out.println("Number of new files for round: " + files.size());
         while(!files.isEmpty()) {
             // Pick a random file and process it
@@ -141,7 +141,7 @@ public abstract class ReplicationLogDiscovery {
             } catch (IOException exception) {
                 // Log the error
             }
-            files = replicationLogFileTracker.getNewFilesForRound(round);
+            files = replicationLogFileTracker.getNewFilesForRound(replicationRound);
         }
     }
 
