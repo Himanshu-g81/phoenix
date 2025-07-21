@@ -34,22 +34,22 @@ public class ReplicationShardDirectoryManager {
 
     public static final String SHARD_DIR_FORMAT = "%03d";
 
-    public static final String REPLICATION_ROUND_TIME_PERIOD_SECONDS_KEY = "phoenix.replication.round.time.period.seconds";
+    public static final String PHOENIX_REPLICATION_ROUND_DURATION_SECONDS_KEY = "phoenix.replication.round.duration.seconds";
 
-    public static final int DEFAULT_REPLICATION_ROUND_TIME_PERIOD_SECONDS = 60;
+    public static final int DEFAULT_REPLICATION_ROUND_DURATION_SECONDS = 60;
 
     private static final String REPLICATION_SHARD_SUB_DIRECTORY_NAME = "shard";
 
     private final int numShards;
 
-    private final int roundTimeSeconds;
+    private final int replicationRoundDurationSeconds;
 
     private final Path shardDirectoryPath;
 
     public ReplicationShardDirectoryManager(final Configuration conf, final Path rootPath) {
         this.shardDirectoryPath = new Path(rootPath.toUri().getPath(), REPLICATION_SHARD_SUB_DIRECTORY_NAME);
         this.numShards = conf.getInt(REPLICATION_NUM_SHARDS_KEY, DEFAULT_REPLICATION_NUM_SHARDS);
-        this.roundTimeSeconds = conf.getInt(REPLICATION_ROUND_TIME_PERIOD_SECONDS_KEY, DEFAULT_REPLICATION_ROUND_TIME_PERIOD_SECONDS);
+        this.replicationRoundDurationSeconds = conf.getInt(PHOENIX_REPLICATION_ROUND_DURATION_SECONDS_KEY, DEFAULT_REPLICATION_ROUND_DURATION_SECONDS);
     }
 
     /**
@@ -69,7 +69,7 @@ public class ReplicationShardDirectoryManager {
         // 2. Calculate which shard this timestamp belongs to
         // Each shard represents a time range: 0 to roundTimeSeconds = shard 0, 
         // roundTimeSeconds to 2*roundTimeSeconds = shard 1, etc.
-        int shardIndex = (int) (secondsSinceStartOfDay / roundTimeSeconds);
+        int shardIndex = (int) (secondsSinceStartOfDay / replicationRoundDurationSeconds);
         
         // Apply modulo to ensure shard index doesn't exceed numShards
         shardIndex = shardIndex % numShards;
@@ -85,7 +85,7 @@ public class ReplicationShardDirectoryManager {
 
     public long getNearestRoundStartTimestamp(long timestamp) {
         // Convert round time from seconds to milliseconds
-        long roundTimeMs = roundTimeSeconds * 1000L;
+        long roundTimeMs = replicationRoundDurationSeconds * 1000L;
         
         // Calculate the nearest round start timestamp
         // This rounds down to the nearest multiple of round time
@@ -94,13 +94,13 @@ public class ReplicationShardDirectoryManager {
 
     public ReplicationRound getReplicationRoundFromStartTime(long roundStartTime) {
         long validRoundStartTime = getNearestRoundStartTimestamp(roundStartTime);
-        long validRoundEndTime = roundStartTime + roundTimeSeconds * 1000L;
+        long validRoundEndTime = validRoundStartTime + replicationRoundDurationSeconds * 1000L;
         return new ReplicationRound(validRoundStartTime, validRoundEndTime);
     }
 
     public ReplicationRound getReplicationRoundFromEndTime(long roundEndTime) {
         long validRoundEndTime = getNearestRoundStartTimestamp(roundEndTime);
-        long validRoundStartTime = validRoundEndTime - roundTimeSeconds * 1000L;
+        long validRoundStartTime = validRoundEndTime - replicationRoundDurationSeconds * 1000L;
         return new ReplicationRound(validRoundStartTime, validRoundEndTime);
     }
 
@@ -114,7 +114,11 @@ public class ReplicationShardDirectoryManager {
         return shardPaths;
     }
 
-    public long getRoundTimeSeconds() {
-        return roundTimeSeconds;
+    public long getReplicationRoundDurationSeconds() {
+        return replicationRoundDurationSeconds;
+    }
+
+    public Path getShardDirectoryPath() {
+        return shardDirectoryPath;
     }
 }

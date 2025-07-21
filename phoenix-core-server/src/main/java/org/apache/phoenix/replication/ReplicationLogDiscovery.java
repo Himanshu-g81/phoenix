@@ -3,17 +3,16 @@ package org.apache.phoenix.replication;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.phoenix.util.EnvironmentEdgeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public abstract class ReplicationLogDiscovery {
 
@@ -23,7 +22,7 @@ public abstract class ReplicationLogDiscovery {
 
     private static final String DEFAULT_EXECUTOR_THREAD_NAME_FORMAT = "ReplicationLogDiscovery-%d";
 
-    private static final long DEFAULT_REPLAY_INTERVAL_SECONDS = 60;
+    private static final long DEFAULT_REPLAY_INTERVAL_SECONDS = 10;
 
     private static final long DEFAULT_SHUTDOWN_TIMEOUT_SECONDS = 30;
 
@@ -31,12 +30,12 @@ public abstract class ReplicationLogDiscovery {
 
     private static final double DEFAULT_WAITING_BUFFER_PERCENTAGE = 15.0;
 
-    private final Configuration conf;
-    private final String haGroupName;
-    private final ReplicationLogFileTracker replicationLogFileTracker;
-    private final ReplicationStateTracker replicationStateTracker;
-    private ScheduledExecutorService scheduler;
-    private volatile boolean isRunning = false;
+    protected final Configuration conf;
+    protected final String haGroupName;
+    protected final ReplicationLogFileTracker replicationLogFileTracker;
+    protected final ReplicationStateTracker replicationStateTracker;
+    protected ScheduledExecutorService scheduler;
+    protected volatile boolean isRunning = false;
 
     public ReplicationLogDiscovery(final ReplicationLogFileTracker replicationLogFileTracker, final ReplicationStateTracker replicationStateTracker) {
         this.replicationLogFileTracker = replicationLogFileTracker;
@@ -105,9 +104,9 @@ public abstract class ReplicationLogDiscovery {
     }
 
     protected List<ReplicationRound> getRoundsToProcess() {
-        long currentTime = System.currentTimeMillis();
+        long currentTime = EnvironmentEdgeManager.currentTimeMillis();
         long previousRoundEndTime = replicationStateTracker.getLastSuccessfullyProcessedRound().getEndTime();
-        long roundTimeMills = replicationLogFileTracker.getReplicationShardDirectoryManager().getRoundTimeSeconds() * 1000L;
+        long roundTimeMills = replicationLogFileTracker.getReplicationShardDirectoryManager().getReplicationRoundDurationSeconds() * 1000L;
         long bufferMillis = (long) (roundTimeMills * getWaitingBufferPercentage() / 100.0);
         final List<ReplicationRound> replicationRounds = new ArrayList<>();
         for(long startTime = previousRoundEndTime; startTime < currentTime - roundTimeMills - bufferMillis; startTime += roundTimeMills) {
@@ -136,10 +135,14 @@ public abstract class ReplicationLogDiscovery {
             // Pick a random file and process it
             Path file = files.get(new Random().nextInt(files.size()));
             try {
-                processFile(file);
-                replicationLogFileTracker.markCompleted(file);
+                Optional<Path> optionalInProgressFilePath = replicationLogFileTracker.markInProgress(file);
+                if(optionalInProgressFilePath.isPresent()) {
+                    processFile(file);
+                    replicationLogFileTracker.markCompleted(optionalInProgressFilePath.get());
+                }
             } catch (IOException exception) {
-                // Log the error
+                LOG.error("Failed to process the file " + file, exception);
+                replicationLogFileTracker.markFailed(file);
             }
             files = replicationLogFileTracker.getNewFilesForRound(replicationRound);
         }
@@ -147,44 +150,47 @@ public abstract class ReplicationLogDiscovery {
 
     protected void processInProgressDirectory() throws IOException {
         List<Path> files = replicationLogFileTracker.getInProgressFiles();
-        for(Path file : files) {
-            // mark file in progress
-            boolean status = replicationLogFileTracker.markInProgress(file);
-            if(status) {
-                // Start processing the file only if it was marked in-progress successfully
-                try {
+        System.out.println("Number of new files for in_progress: " + files.size());
+        while(!files.isEmpty()) {
+            // Pick a random file and process it
+            Path file = files.get(new Random().nextInt(files.size()));
+            try {
+                Optional<Path> optionalInProgressFilePath = replicationLogFileTracker.markInProgress(file);
+                if(optionalInProgressFilePath.isPresent()) {
                     processFile(file);
-                    replicationLogFileTracker.markCompleted(file);
-                } catch (IOException exception) {
-                    replicationLogFileTracker.markFileAsFailed(file);
+                    replicationLogFileTracker.markCompleted(optionalInProgressFilePath.get());
                 }
+            } catch (IOException exception) {
+                LOG.error("Failed to process the file " + file, exception);
+                replicationLogFileTracker.markFailed(file);
             }
+            files = replicationLogFileTracker.getInProgressFiles();
         }
     }
 
     protected abstract void processFile(Path path) throws IOException;
 
-    protected ReplicationStateTracker getReplicationStateTracker() {
+    public ReplicationStateTracker getReplicationStateTracker() {
         return this.replicationStateTracker;
     }
 
-    protected ReplicationLogFileTracker getReplicationLogFileTracker() {
+    public ReplicationLogFileTracker getReplicationLogFileTracker() {
         return this.replicationLogFileTracker;
     }
 
-    protected Configuration getConf() {
+    public Configuration getConf() {
         return this.conf;
     }
 
-    protected String getHaGroupName() {
+    public String getHaGroupName() {
         return this.haGroupName;
     }
 
-    protected int getExecutorThreadCount() {
+    public int getExecutorThreadCount() {
         return DEFAULT_EXECUTOR_THREAD_COUNT;
     }
 
-    protected String getExecutorThreadNameFormat() {
+    public String getExecutorThreadNameFormat() {
         return DEFAULT_EXECUTOR_THREAD_NAME_FORMAT;
     }
 
@@ -192,7 +198,7 @@ public abstract class ReplicationLogDiscovery {
      * Returns the replay interval in seconds. Subclasses can override this method to provide custom intervals.
      * @return The replay interval in seconds
      */
-    protected long getReplayIntervalSeconds() {
+    public long getReplayIntervalSeconds() {
         return DEFAULT_REPLAY_INTERVAL_SECONDS;
     }
 
@@ -200,11 +206,11 @@ public abstract class ReplicationLogDiscovery {
      * Returns the shutdown timeout in seconds. Subclasses can override this method to provide custom timeout values.
      * @return The shutdown timeout in seconds
      */
-    protected long getShutdownTimeoutSeconds() {
+    public long getShutdownTimeoutSeconds() {
         return DEFAULT_SHUTDOWN_TIMEOUT_SECONDS;
     }
 
-    protected double getInProgressDirectoryProcessProbability() {
+    public double getInProgressDirectoryProcessProbability() {
         return DEFAULT_IN_PROGRESS_DIRECTORY_PROCESSING_PROBABILITY;
     }
 
@@ -213,8 +219,11 @@ public abstract class ReplicationLogDiscovery {
      * to provide custom buffer percentages.
      * @return The buffer percentage (default 15.0%)
      */
-    protected double getWaitingBufferPercentage() {
+    public double getWaitingBufferPercentage() {
         return DEFAULT_WAITING_BUFFER_PERCENTAGE;
     }
 
+    public boolean isRunning() {
+        return isRunning;
+    }
 }

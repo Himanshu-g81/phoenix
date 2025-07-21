@@ -179,6 +179,7 @@ public abstract class ReplicationLogGroupWriter {
     public void init() throws IOException {
         System.out.println("Inside ReplicationLogGroupWriter init method and calling initializeFileSystems");
         initializeFileSystems();
+        initializeReplicationShardDirectoryManager();
         // Start time based rotation.
         lastRotationTime.set(EnvironmentEdgeManager.currentTimeMillis());
         startRotationExecutor();

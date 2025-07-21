@@ -69,7 +69,6 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
         try {
             standbyUrl = new URI(standbyUrlString);
             standbyFs = getFileSystem(standbyUrl);
-            initializeReplicationShardDirectoryManager();
             LOG.info("Initialized standby filesystem: {}", standbyUrl);
         } catch (URISyntaxException e) {
             throw new IOException("Invalid standby HDFS URL: " + standbyUrlString, e);
@@ -79,16 +78,12 @@ public class StandbyLogGroupWriter extends ReplicationLogGroupWriter {
     @Override
     protected void initializeReplicationShardDirectoryManager() {
         System.out.println("Calling initializeReplicationShardDirectoryManager");
-        haGroupLogFilesPath = new Path(new Path(standbyUrl.getPath(), ReplicationLogReplayFileTracker.IN_SUBDIRECTORY), logGroup.getHaGroupName());
+        this.haGroupLogFilesPath = new Path(new Path(standbyUrl.getPath(), ReplicationLogReplayFileTracker.IN_SUBDIRECTORY), logGroup.getHaGroupName());
         this.replicationShardDirectoryManager = new ReplicationShardDirectoryManager(logGroup.getConfiguration(), haGroupLogFilesPath);
     }
 
     /**
-     * Creates a new log file path in a sharded directory structure based on server name and
-     * timestamp. The resulting path structure is
-     * <pre>
-     * [url]/[haGroupId]/[shard]/[timestamp]-[servername].plog
-     * </pre>
+     * Creates a new log file path in a sharded directory structure.
      */
     protected Path makeWriterPath(FileSystem fs, URI url) throws IOException {
         long timestamp = EnvironmentEdgeManager.currentTimeMillis();

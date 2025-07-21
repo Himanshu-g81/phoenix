@@ -78,32 +78,32 @@ public class ReplicationReplayLogDiscovery extends ReplicationLogDiscovery {
     }
 
     @Override
-    protected String getExecutorThreadNameFormat() {
+    public String getExecutorThreadNameFormat() {
         return EXECUTOR_THREAD_NAME_FORMAT;
     }
 
     @Override
-    protected long getReplayIntervalSeconds() {
+    public long getReplayIntervalSeconds() {
         return getConf().getLong(REPLICATION_REPLAY_INTERVAL_SECONDS_KEY, DEFAULT_REPLAY_INTERVAL_SECONDS);
     }
 
     @Override
-    protected long getShutdownTimeoutSeconds() {
+    public long getShutdownTimeoutSeconds() {
         return getConf().getLong(REPLICATION_REPLAY_SHUTDOWN_TIMEOUT_SECONDS_KEY, DEFAULT_SHUTDOWN_TIMEOUT_SECONDS);
     }
 
     @Override
-    protected int getExecutorThreadCount() {
+    public int getExecutorThreadCount() {
         return getConf().getInt(REPLICATION_REPLAY_EXECUTOR_THREAD_COUNT_KEY, DEFAULT_EXECUTOR_THREAD_COUNT);
     }
 
     @Override
-    protected double getInProgressDirectoryProcessProbability() {
+    public double getInProgressDirectoryProcessProbability() {
         return getConf().getDouble(REPLICATION_REPLAY_IN_PROGRESS_DIRECTORY_PROCESSING_PROBABILITY_KEY, DEFAULT_IN_PROGRESS_DIRECTORY_PROCESSING_PROBABILITY);
     }
 
     @Override
-    protected double getWaitingBufferPercentage() {
+    public double getWaitingBufferPercentage() {
         return getConf().getDouble(REPLICATION_REPLAY_WAITING_BUFFER_PERCENTAGE_KEY, DEFAULT_WAITING_BUFFER_PERCENTAGE);
     }
 }
