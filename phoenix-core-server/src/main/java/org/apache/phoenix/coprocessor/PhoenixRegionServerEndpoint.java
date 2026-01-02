@@ -17,9 +17,7 @@
  */
 package org.apache.phoenix.coprocessor;
 
-//import com.google.protobuf.RpcCallback;
-//import com.google.protobuf.RpcController;
-//import com.google.protobuf.Service;
+import static org.apache.phoenix.jdbc.PhoenixHAAdmin.getLocalZkUrl;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -36,6 +34,7 @@ import org.apache.phoenix.hbase.index.parallel.TaskRunner;
 import org.apache.phoenix.hbase.index.parallel.ThreadPoolBuilder;
 import org.apache.phoenix.hbase.index.parallel.ThreadPoolManager;
 import org.apache.phoenix.hbase.index.parallel.WaitForCompletionTaskRunner;
+import org.apache.phoenix.jdbc.ClusterRoleRecord;
 import org.apache.phoenix.jdbc.HAGroupStoreManager;
 import org.apache.phoenix.protobuf.ProtobufUtil;
 import org.apache.phoenix.query.QueryServices;
@@ -45,6 +44,7 @@ import org.apache.phoenix.util.SchemaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.hbase.thirdparty.com.google.protobuf.ByteString;
 import org.apache.hbase.thirdparty.com.google.protobuf.RpcCallback;
 import org.apache.hbase.thirdparty.com.google.protobuf.RpcController;
 import org.apache.hbase.thirdparty.com.google.protobuf.Service;
@@ -57,6 +57,7 @@ public class PhoenixRegionServerEndpoint extends
   private static final Logger LOGGER = LoggerFactory.getLogger(PhoenixRegionServerEndpoint.class);
   private MetricsMetadataCachingSource metricsSource;
   protected Configuration conf;
+  private String zkUrl;
 
   // regionserver level thread pool used by Uncovered Indexes to scan data table rows
   private static TaskRunner uncoveredIndexThreadPool;
@@ -67,6 +68,7 @@ public class PhoenixRegionServerEndpoint extends
     this.metricsSource =
       MetricsPhoenixCoprocessorSourceFactory.getInstance().getMetadataCachingSource();
     initUncoveredIndexThreadPool(this.conf);
+    this.zkUrl = getLocalZkUrl(conf);
   }
 
   @Override
@@ -134,13 +136,50 @@ public class PhoenixRegionServerEndpoint extends
     RegionServerEndpointProtos.InvalidateHAGroupStoreClientRequest request,
     RpcCallback<RegionServerEndpointProtos.InvalidateHAGroupStoreClientResponse> done) {
     LOGGER.info("PhoenixRegionServerEndpoint invalidating HAGroupStoreClient");
-    HAGroupStoreManager haGroupStoreManager;
     try {
-      haGroupStoreManager = HAGroupStoreManager.getInstance(conf);
-      haGroupStoreManager.invalidateHAGroupStoreClient();
+      HAGroupStoreManager haGroupStoreManager = HAGroupStoreManager.getInstance(conf);
+      if (haGroupStoreManager != null) {
+        haGroupStoreManager.invalidateHAGroupStoreClient(request.getHaGroupName().toStringUtf8(),
+          request.getBroadcastUpdate());
+      } else {
+        throw new IOException(
+          "HAGroupStoreManager is null for " + "current cluster, check configuration");
+      }
     } catch (Throwable t) {
       String errorMsg =
         "Invalidating HAGroupStoreClient FAILED, check exception for " + "specific details";
+      LOGGER.error(errorMsg, t);
+      IOException ioe = ClientUtil.createIOException(errorMsg, t);
+      ProtobufUtil.setControllerException(controller, ioe);
+    }
+  }
+
+  @Override
+  public void getClusterRoleRecord(RpcController controller,
+    RegionServerEndpointProtos.GetClusterRoleRecordRequest request,
+    RpcCallback<RegionServerEndpointProtos.GetClusterRoleRecordResponse> done) {
+    try {
+      HAGroupStoreManager haGroupStoreManager = HAGroupStoreManager.getInstance(conf);
+      if (haGroupStoreManager != null) {
+        ClusterRoleRecord clusterRoleRecord =
+          haGroupStoreManager.getClusterRoleRecord(request.getHaGroupName().toStringUtf8());
+        RegionServerEndpointProtos.GetClusterRoleRecordResponse.Builder responseBuilder =
+          RegionServerEndpointProtos.GetClusterRoleRecordResponse.newBuilder();
+        responseBuilder.setHaGroupName(request.getHaGroupName());
+        responseBuilder.setPolicy(ByteString.copyFromUtf8(clusterRoleRecord.getPolicy().name()));
+        responseBuilder.setUrl1(ByteString.copyFromUtf8(clusterRoleRecord.getUrl1()));
+        responseBuilder.setRole1(ByteString.copyFromUtf8(clusterRoleRecord.getRole1().name()));
+        responseBuilder.setUrl2(ByteString.copyFromUtf8(clusterRoleRecord.getUrl2()));
+        responseBuilder.setRole2(ByteString.copyFromUtf8(clusterRoleRecord.getRole2().name()));
+        responseBuilder.setVersion(clusterRoleRecord.getVersion());
+        done.run(responseBuilder.build());
+      } else {
+        throw new IOException(
+          "HAGroupStoreManager is null for " + "current cluster, check configuration");
+      }
+    } catch (Throwable t) {
+      String errorMsg =
+        "Getting ClusterRoleRecord FAILED, check exception for " + "specific details";
       LOGGER.error(errorMsg, t);
       IOException ioe = ClientUtil.createIOException(errorMsg, t);
       ProtobufUtil.setControllerException(controller, ioe);
