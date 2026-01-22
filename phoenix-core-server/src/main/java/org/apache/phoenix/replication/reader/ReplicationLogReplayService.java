@@ -17,6 +17,7 @@
  */
 package org.apache.phoenix.replication.reader;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.phoenix.jdbc.HAGroupStoreManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,7 +194,7 @@ public class ReplicationLogReplayService {
   protected void startReplicationReplay() throws IOException, SQLException {
     List<String> replicationGroups = getReplicationGroups();
     for (String replicationGroup : replicationGroups) {
-      ReplicationLogReplay.get(conf, replicationGroup).startReplay();
+      getReplicationLogReplay(replicationGroup).startReplay();
     }
   }
 
@@ -202,14 +204,37 @@ public class ReplicationLogReplayService {
   protected void stopReplicationReplay() throws IOException, SQLException {
     List<String> replicationGroups = getReplicationGroups();
     for (String replicationGroup : replicationGroups) {
-      ReplicationLogReplay replicationLogReplay = ReplicationLogReplay.get(conf, replicationGroup);
+      ReplicationLogReplay replicationLogReplay = getReplicationLogReplay(replicationGroup);
       replicationLogReplay.stopReplay();
       replicationLogReplay.close();
     }
   }
 
+  /**
+   * Returns the minimum consistency point across all HA groups in the cluster. See
+   * {@link ReplicationLogDiscoveryReplay#getConsistencyPoint()} for definition of consistency point
+   * for a particular HA Group.
+   * @return The minimum consistency point timestamp in milliseconds across all HA groups
+   * @throws IOException  if there's an error retrieving consistency points from replication groups
+   * @throws SQLException if there's an error accessing HA group information
+   */
+  protected long getConsistencyPoint() throws IOException, SQLException {
+    long consistencyPoint = EnvironmentEdgeManager.currentTime();
+    List<String> replicationGroups = getReplicationGroups();
+    for (String replicationGroup : replicationGroups) {
+      consistencyPoint = Math.min(getReplicationLogReplay(replicationGroup)
+        .getReplicationReplayLogDiscovery().getConsistencyPoint(), consistencyPoint);
+    }
+    return consistencyPoint;
+  }
+
   /** Returns the list of HA groups on the cluster */
   protected List<String> getReplicationGroups() throws SQLException {
     return HAGroupStoreManager.getInstance(conf).getHAGroupNames();
+  }
+
+  @VisibleForTesting
+  protected ReplicationLogReplay getReplicationLogReplay(final String haGroupName) {
+    return ReplicationLogReplay.get(conf, haGroupName);
   }
 }
