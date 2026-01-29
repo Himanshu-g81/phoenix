@@ -32,12 +32,12 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.metrics.ScanMetrics;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.regionserver.Region;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.client.metrics.ScanMetrics;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.phoenix.compat.hbase.CompatScanMetrics;
 import org.apache.phoenix.execute.TupleProjector;
@@ -107,7 +107,7 @@ public class UncoveredGlobalIndexRegionScanner extends UncoveredIndexRegionScann
         indexMaintainer.getEmptyKeyValueQualifierForDataTable());
     }
     isScanMetricsEnabled =
-          scan.isScanMetricsEnabled() && CompatScanMetrics.supportsFineGrainedReadMetrics();
+      scan.isScanMetricsEnabled() && CompatScanMetrics.supportsFineGrainedReadMetrics();
     if (isScanMetricsEnabled) {
       dataTableScanMetrics = new ArrayList<>();
     }

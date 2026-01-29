@@ -161,7 +161,7 @@ public class ScanMetricsHolder {
   public CombinableMetric getCountOfRowsPaged() {
     return countOfRowsPaged;
   }
-  
+
   public CombinableMetric getFsReadTime() {
     return fsReadTime;
   }

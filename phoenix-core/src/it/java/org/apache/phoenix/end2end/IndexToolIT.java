@@ -838,14 +838,11 @@ public class IndexToolIT extends BaseTest {
       caseSensitive ? generateUniqueName().toLowerCase() : generateUniqueName();
     String indexTableName =
       caseSensitive ? generateUniqueName().toLowerCase() : generateUniqueName();
-    String sSchemaName =
-      caseSensitive ? SchemaUtil.getEscapedArgument(schemaName) : schemaName;
-    String sDataTableName = caseSensitive
-      ? SchemaUtil.getEscapedArgument(dataTableName)
-      : dataTableName;
-    String sIndexTableName = caseSensitive
-      ? SchemaUtil.getEscapedArgument(indexTableName)
-      : indexTableName;
+    String sSchemaName = caseSensitive ? SchemaUtil.getEscapedArgument(schemaName) : schemaName;
+    String sDataTableName =
+      caseSensitive ? SchemaUtil.getEscapedArgument(dataTableName) : dataTableName;
+    String sIndexTableName =
+      caseSensitive ? SchemaUtil.getEscapedArgument(indexTableName) : indexTableName;
     String qDataTableName = caseSensitive
       ? SchemaUtil.getFullTableNameWithQuotes(schemaName, dataTableName)
       : SchemaUtil.getTableName(schemaName, dataTableName);

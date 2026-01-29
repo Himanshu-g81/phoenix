@@ -190,7 +190,8 @@ public class GlobalIndexChecker extends BaseScannerRegionObserver implements Reg
         DEFAULT_REPAIR_LOGGING_PERCENT);
       random = new Random(EnvironmentEdgeManager.currentTimeMillis());
       pageSizeMs = getPageSizeMsForRegionScanner(scan);
-      isScanMetricsEnabled = scan.isScanMetricsEnabled() && CompatScanMetrics.supportsFineGrainedReadMetrics();
+      isScanMetricsEnabled =
+        scan.isScanMetricsEnabled() && CompatScanMetrics.supportsFineGrainedReadMetrics();
     }
 
     @Override

@@ -23,13 +23,11 @@ import java.sql.SQLException;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.regionserver.HRegion;
-import org.apache.phoenix.end2end.AlterTableIT;
 import org.apache.phoenix.end2end.ParallelStatsDisabledIT;
 import org.apache.phoenix.end2end.ParallelStatsDisabledTest;
 import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.util.TestUtil;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
