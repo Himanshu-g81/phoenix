@@ -92,6 +92,7 @@
     <!-- Use the netty4 version from the BPP -->
     <netty-bom.version>${netty4.version}</netty-bom.version>
     <antlr.version>3.5.2</antlr.version>
+    <disruptor.version>3.3.6</disruptor.version>
     <!-- Only used for tests with HBase 2.1-2.4 -->
     <!-- <reload4j.version>1.2.19</reload4j.version> -->
     <!-- <log4j2.version>2.18.0</log4j2.version> -->
