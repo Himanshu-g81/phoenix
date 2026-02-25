@@ -80,7 +80,8 @@ public class LogFileCompressionTest {
     params.add(new Object[] { Compression.Algorithm.SNAPPY });
     params.add(new Object[] { Compression.Algorithm.ZSTD });
     // GZ provided by the JRE
-    params.add(new Object[] { Compression.Algorithm.GZ });
+    // TODO: Uncomment this when we have upgrade to Hadoop 3.4
+    // params.add(new Object[] { Compression.Algorithm.GZ });
     return params;
   }
 
