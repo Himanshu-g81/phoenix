@@ -1162,9 +1162,12 @@ public class ReplicationLogDiscoveryTest {
         Mockito.argThat(path -> path.getName().startsWith(expectedFile.getName().split("\\.")[0])));
     }
 
-    // Verify that processFile was called for each file in the round
+    // Verify that processFile was called for each file in the round, pinning firstClaim=true. The
+    // new-files path is the first claim; pickup lag is recorded only there (see
+    // ReplicationLogDiscoveryReplay#processFile). eq(true) guards the literal in
+    // ReplicationLogDiscovery#processNewFilesForRound against a future swap.
     Mockito.verify(discovery, Mockito.times(5)).processFile(Mockito.any(Path.class),
-      Mockito.anyBoolean());
+      Mockito.eq(true));
 
     // Verify that processFile was called for each specific file (using prefix matching)
     for (Path expectedFile : newFilesForRound) {
@@ -1470,9 +1473,11 @@ public class ReplicationLogDiscoveryTest {
       }
 
       // Verify that processFile was called for each file in the directory (i.e. 5 + 2 times for
-      // failed once that would succeed in next retry)
+      // failed once that would succeed in next retry), pinning firstClaim=false. The in-progress
+      // path is a reclaim, so pickup lag is deliberately not recorded there; eq(false) guards the
+      // literal in ReplicationLogDiscovery#processInProgressDirectory against a future swap.
       Mockito.verify(discovery, Mockito.times(7)).processFile(Mockito.any(Path.class),
-        Mockito.anyBoolean());
+        Mockito.eq(false));
 
       // Verify that processFile was called for each specific file (using prefix matching)
       // Files 1 and 3 should be called twice (fail once, succeed on retry), others once
